@@ -4,6 +4,10 @@ import User from '@/models/User';
 import { getAuthUser } from '@/lib/auth';
 import { scoreMentors } from '@/lib/mentorMatching';
 
+function escapeRegex(input = '') {
+  return String(input).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export async function GET(request) {
   try {
     const authUser = await getAuthUser(request);
@@ -11,11 +15,16 @@ export async function GET(request) {
 
     await dbConnect();
     const { searchParams } = new URL(request.url);
-    const skill = searchParams.get('skill');
+    const skill = (searchParams.get('skill') || '').trim();
 
     const query = { _id: { $ne: authUser._id }, role: 'mentor', suspended: { $ne: true } };
     if (skill) {
-      query['skills.name'] = { $regex: new RegExp(skill, 'i') };
+      const safeRegex = new RegExp(escapeRegex(skill), 'i');
+      query.$or = [
+        { 'skills.name': { $regex: safeRegex } },
+        { skills: { $elemMatch: { $regex: safeRegex } } },
+        { verifiedSkills: { $elemMatch: { $regex: safeRegex } } },
+      ];
     }
 
     const mentors = await User.find(query).select('-password').limit(50);

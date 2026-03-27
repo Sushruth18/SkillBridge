@@ -15,6 +15,7 @@ export default function MentorsPage() {
   const [skill, setSkill] = useState('');
   const [mentors, setMentors] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [bookingMentor, setBookingMentor] = useState(null);
   const [bookingData, setBookingData] = useState({ scheduledAt: '', price: 30 });
   const [bookingError, setBookingError] = useState('');
@@ -22,13 +23,20 @@ export default function MentorsPage() {
   useEffect(() => { if (!isLoaded || !user) router.push('/login'); }, [user, isLoaded, router]);
 
   const search = async () => {
-    
+    setSearchError('');
     setSearching(true);
     try {
       const res = await fetch(`/api/matching?skill=${encodeURIComponent(skill)}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to fetch mentors');
+      }
       const data = await res.json();
       setMentors(data.mentors || []);
-    } catch {} finally { setSearching(false); }
+    } catch (err) {
+      setMentors([]);
+      setSearchError(err.message || 'Something went wrong while searching mentors');
+    } finally { setSearching(false); }
   };
 
   const bookSession = async () => {
@@ -65,6 +73,12 @@ export default function MentorsPage() {
             {searching ? 'Searching...' : 'Search'}
           </motion.button>
         </div>
+
+        {searchError && (
+          <div className="mb-6 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {searchError}
+          </div>
+        )}
 
         {searching ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
